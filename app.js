@@ -1,18 +1,24 @@
 const fs = require('fs');
 const path = require('path');
 
-const partialRegex = /<!-- partial name: ([\w_]+) placeholder: ([\w_]+) -->(.*)<!-- end partial -->/s;
+const partialRegex = /<!-- partial name: ([\w_]+) placeholder: ([\w_]+) -->(.*?)<!-- end partial -->/gs;
 
 fs.readFile('index.html', 'utf-8', (err, buff) => {
-    const partialMatch = buff.match(partialRegex)
+    let partialMatch;
+    let out = buff;
 
-    if (partialMatch !== null) {
-        const name = partialMatch[1];
-        const placeholder = partialMatch[2];
-        const content = partialMatch[3];
-        const replacement = buff.replace(partialMatch[0], `\$\{${placeholder}\}`);
+    // Calling exec on the regular expression multiple times iterates on all the matches, one at time
+    while ((partialMatch = partialRegex.exec(buff)) !== null) {
+        // This is necessary to avoid infinite loops with zero-width matches
+        if (partialMatch.index === partialRegex.lastIndex) {
+            partialRegex.lastIndex++;
+        }
 
-        fs.writeFileSync(path.join('build', `_${name}.html`), content);
-        fs.writeFileSync(path.join('build', `index.html`), replacement);
+        const [content, name, placeholder, partial] = partialMatch;
+        out = out.replace(content, `\$\{${placeholder}\}`);
+
+        fs.writeFileSync(path.join('build', `_${name}.html`), partial);
     }
+
+    fs.writeFileSync(path.join('build', `index.html`), out);
 });
