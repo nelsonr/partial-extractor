@@ -1,24 +1,52 @@
 const fs = require('fs');
 const path = require('path');
 
-const partialRegex = /<!-- partial name: ([\w_]+) placeholder: ([\w_]+) -->(.*?)<!-- end partial -->/gs;
+function extractPartials(options) {
+    const defaults = {
+        filename: '',
+        srcPath: '',
+        outPath: '',
+    };
 
-fs.readFile('index.html', 'utf-8', (err, buff) => {
-    let partialMatch;
-    let out = buff;
+    options = Object.assign(defaults, options);
 
-    // Calling exec on the regular expression multiple times iterates on all the matches, one at time
-    while ((partialMatch = partialRegex.exec(buff)) !== null) {
-        // This is necessary to avoid infinite loops with zero-width matches
-        if (partialMatch.index === partialRegex.lastIndex) {
-            partialRegex.lastIndex++;
+    const partialRegex = /<!-- partial ([\w_]+) -->(.*?)<!-- \/partial \1 -->/gs;
+
+    fs.readFile(path.join(options.srcPath, options.filename), 'utf-8', (err, buff) => {
+        let partialMatch;
+        let matchFound = false;
+        let out = buff;
+
+        // Calling exec on the regular expression multiple times iterates on all the matches, one at time
+        while ((partialMatch = partialRegex.exec(buff)) !== null) {
+            matchFound = true;
+
+            // This is necessary to avoid infinite loops with zero-width matches
+            if (partialMatch.index === partialRegex.lastIndex) {
+                partialRegex.lastIndex++;
+            }
+
+            const [content, name, partial] = partialMatch;
+            out = out.replace(content, `\$\{${name}\}`);
+
+            fs.writeFileSync(path.join(options.outPath, `_${name}.html`), partial);
+
+            extractPartials({
+                filename: `_${name}.html`,
+                srcPath: options.outPath,
+                outPath: options.outPath,
+            });
         }
 
-        const [content, name, placeholder, partial] = partialMatch;
-        out = out.replace(content, `\$\{${placeholder}\}`);
+        if (matchFound) {
+            fs.writeFileSync(path.join(options.outPath, options.filename), out);
+        }
+    });
 
-        fs.writeFileSync(path.join('build', `_${name}.html`), partial);
-    }
+    return true;
+}
 
-    fs.writeFileSync(path.join('build', `index.html`), out);
+extractPartials({
+    filename: 'index.html',
+    outPath: 'build'
 });
