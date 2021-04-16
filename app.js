@@ -1,7 +1,24 @@
 const fs = require('fs');
 const path = require('path');
 
-function extractPartials(options) {
+/**
+ * Generate partials for HTML email templates 
+ * 
+ * Create a HTML comment with the following syntax around any content: 
+ * 
+ * ```html
+ * <!-- partial filename name placeholder -->
+ *  Hello World!
+ * <!-- /partial filename -->
+ * ```
+ * 
+ * where the `filename` is the filename for the partial and `placeholder` is the name of the template variable
+ * that should replace the content
+ * 
+ * @param {Object} options Check the `defaults` object for the available options
+ * @returns {Boolean} True
+ */
+function generatePartials(options) {
     const defaults = {
         filename: '',
         srcPath: '',
@@ -10,43 +27,46 @@ function extractPartials(options) {
 
     options = Object.assign(defaults, options);
 
-    const partialRegex = /<!-- partial ([\w_]+) -->(.*?)<!-- \/partial \1 -->/gs;
+    const partialRegex = /<!-- partial ([\w_]+) name ([\w_]+) -->(.*?)<!-- \/partial \1 -->/gs;
+    const fileData = fs.readFileSync(path.join(options.srcPath, options.filename), 'utf-8');
 
-    fs.readFile(path.join(options.srcPath, options.filename), 'utf-8', (err, buff) => {
-        let partialMatch;
-        let matchFound = false;
-        let out = buff;
+    let partialMatch;
+    let matchFound = false;
+    let out = fileData;
 
-        // Calling exec on the regular expression multiple times iterates on all the matches, one at time
-        while ((partialMatch = partialRegex.exec(buff)) !== null) {
-            matchFound = true;
+    console.log('Extracting partials from file: ', options.filename);
 
-            // This is necessary to avoid infinite loops with zero-width matches
-            if (partialMatch.index === partialRegex.lastIndex) {
-                partialRegex.lastIndex++;
-            }
+    if (!fs.existsSync(options.outPath)) {
+        fs.mkdirSync(options.outPath);
+    }
 
-            const [content, name, partial] = partialMatch;
-            out = out.replace(content, `\$\{${name}\}`);
+    // Calling exec on the regular expression multiple times iterates on all the matches, one at time
+    while ((partialMatch = partialRegex.exec(fileData)) !== null) {
+        matchFound = true;
 
-            fs.writeFileSync(path.join(options.outPath, `_${name}.html`), partial);
-
-            extractPartials({
-                filename: `_${name}.html`,
-                srcPath: options.outPath,
-                outPath: options.outPath,
-            });
+        // This is necessary to avoid infinite loops with zero-width matches
+        if (partialMatch.index === partialRegex.lastIndex) {
+            partialRegex.lastIndex++;
         }
 
-        if (matchFound) {
-            fs.writeFileSync(path.join(options.outPath, options.filename), out);
-        }
-    });
+        const [content, filename, name, partial] = partialMatch;
+        out = out.replace(content, `\$\{${name}\}`);
+
+        fs.writeFileSync(path.join(options.outPath, `_${filename}.html`), partial);
+
+        // Check the partial file for additional partials
+        generatePartials({
+            filename: `_${filename}.html`,
+            srcPath: options.outPath,
+            outPath: options.outPath,
+        });
+    }
+
+    if (matchFound) {
+        fs.writeFileSync(path.join(options.outPath, options.filename), out);
+    }
 
     return true;
 }
 
-extractPartials({
-    filename: 'index.html',
-    outPath: 'build'
-});
+module.exports = generatePartials;
