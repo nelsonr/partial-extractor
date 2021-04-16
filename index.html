@@ -9,21 +9,22 @@
 </head>
 
 <body>
-    <!-- partial todo_list -->
     <ol>
-        <!-- partial todo_list_item -->
+        <!-- partial todo_item name todo_list -->
         <li>${text}</li>
-        <!-- /partial todo_list_item -->
+        <!-- /partial todo_item -->
     </ol>
-    <!-- /partial todo_list -->
 
-    <!-- partial image_list -->
-    <ol>
-        <!-- partial image_list_item -->
-        <li><img src="${image_url}" alt=""></li>
-        <!-- /partial image_list_item -->
-    </ol>
-    <!-- /partial image_list -->
+    <div class="cards">
+        <!-- partial card_item name cards_list -->
+        <div class="card">
+            <div class="card__image">
+                <img src="${card_image_url}" alt="">
+            </div>
+            <div class="card__title">${card_title}</div>
+        </div>
+        <!-- /partial card_item -->
+    </div>
 </body>
 
 </html>
